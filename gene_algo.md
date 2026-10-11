@@ -32,7 +32,7 @@ This is the **"Balloon Effect"** of IP routing: *squeeze traffic out of one corr
 
 ```text
                        +-------------------------+
-                       |   EBR1.SNG3 (Singapore) |
+                       |   cr1.sin (Singapore)   |
                        +------------+------------+
                                     |
                   Baseline: 94.7%   |   Naive Metric Bump (+1000)
@@ -42,7 +42,7 @@ This is the **"Balloon Effect"** of IP routing: *squeeze traffic out of one corr
        |                                                         |
        v                                                         v
 +---------------+     Severe Spillover: 133%      +-------------------------+
-| EBR1.HKG4     | <------------------------------ | EBR1.MNA4 (Manila)      |
+| cr1.hkg       | <------------------------------ | cr1.mnl (Manila)        |
 | (Hong Kong)   |                                 +------------+------------+
 +-------+-------+                                              |
         |                                                      |
@@ -50,7 +50,7 @@ This is the **"Balloon Effect"** of IP routing: *squeeze traffic out of one corr
                                    |
                                    v
                        +-------------------------+
-                       |   EBR2.TOK4 (Tokyo)     |
+                       |   cr2.tyo (Tokyo)       |
                        +-------------------------+
 ```
 
@@ -104,7 +104,7 @@ A **Genetic Algorithm (GA)** uses principles of natural evolution—**chromosome
 ```text
 +-----------------------------------------------------------------------+
 | 1. CANDIDATE ENCODING (Chromosome)                                    |
-|    Vector: [SNG-TOK: 11529 | MNA-TOK: 9646 | HKG-MNA: 2814 | ... ]    |
+|    Vector: [SIN-TYO: 11529 | MNL-TYO: 9646 | HKG-MNL: 2814 | ... ]    |
 +-----------------------------------------------------------------------+
                                    |
                                    v
@@ -136,11 +136,11 @@ Instead of tuning the entire network (1,300+ circuits), TE-SIM scopes the proble
 
 | Gene Index | Link Interface | Baseline Metric | Tunable Range | Role in Traffic Flow |
 | :---: | :--- | :---: | :---: | :--- |
-| **Gene 0** | `EBR1.SNG3 <--> EBR2.TOK4` | `7439` | 7,000 - 15,000 | Congested direct link to relieve |
-| **Gene 1** | `EBR1.MNA4 <--> EBR1.TOK4` | `5150` | 5,000 - 12,000 | Manila spillover absorber |
-| **Gene 2** | `EBR1.HKG4 <--> EBR1.MNA4` | `1939` | 1,500 - 8,000 | Hong Kong - Manila balance |
-| **Gene 3** | `EBR1.SNG4 <--> EBR2.HKG3` | `3164` | 2,500 - 8,000 | Hong Kong alternate transit |
-| **Gene 4** | `EBR1.SNG3 <--> EBR2.MNA4` | `2858` | 2,500 - 8,000 | Singapore local egress balance |
+| **Gene 0** | `cr1.sin <--> cr2.tyo` | `7439` | 7,000 - 15,000 | Congested direct link to relieve |
+| **Gene 1** | `cr1.mnl <--> cr2.tyo` | `5150` | 5,000 - 12,000 | Manila spillover absorber |
+| **Gene 2** | `cr1.hkg <--> cr1.mnl` | `1939` | 1,500 - 8,000 | Hong Kong - Manila balance |
+| **Gene 3** | `cr2.sin <--> cr2.hkg` | `3164` | 2,500 - 8,000 | Hong Kong alternate transit |
+| **Gene 4** | `cr1.sin <--> cr2.mnl` | `2858` | 2,500 - 8,000 | Singapore local egress balance |
 
 ### The Fitness (Loss) Function
 In operational networking, an algorithm that improves one link by blowing out another is unacceptable. We enforce this with an asymmetrical penalty:
@@ -169,19 +169,19 @@ Corridor Parameters:
 
 Three candidate chromosomes are initialized. Candidate A is the baseline; Candidates B and C are sampled within corridor bounds:
 
-* **Candidate A (Baseline):** `[SNG-TOK: 7439, MNA-TOK: 5150]`
-* **Candidate B (Naive Bump):** `[SNG-TOK: 12500, MNA-TOK: 5150]`
-* **Candidate C (Coordinated):** `[SNG-TOK: 11200, MNA-TOK: 9100]`
+* **Candidate A (Baseline):** `[SIN-TYO: 7439, MNL-TYO: 5150]`
+* **Candidate B (Naive Bump):** `[SIN-TYO: 12500, MNL-TYO: 5150]`
+* **Candidate C (Coordinated):** `[SIN-TYO: 11200, MNL-TYO: 9100]`
 
 #### Step 1: Simulate Traffic via Dijkstra
 Our digital twin simulates the 60 Gbps demand matrix across the topology:
 
 * **Candidate A (Baseline):**
-  * SNG-TOK metric is low (`7439`). All 60 Gbps takes direct path.
+  * SIN-TYO metric is low (`7439`). All 60 Gbps takes direct path.
   * Direct link utilization: **94.7%** (1 violation)
   * Manila link utilization: **24.0%**
 * **Candidate B (Naive Bump):**
-  * SNG-TOK metric raised to `12500`. Direct path becomes too expensive.
+  * SIN-TYO metric raised to `12500`. Direct path becomes too expensive.
   * 45 Gbps diverts to Singapore -> Manila -> Tokyo.
   * Direct link utilization drops to **42.0%**.
   * Manila-Tokyo link utilization hits **92.5%** (1 violation)
@@ -214,13 +214,13 @@ The evolutionary cycle now produces the next generation:
 ```text
 Child_Metric = Parent_Metric + Gaussian_Noise(mean=0, std=300)
 
-Parent Gene (Candidate C): [ SNG-TOK: 11,200 | MNA-TOK: 9,100 ]
+Parent Gene (Candidate C): [ SIN-TYO: 11,200 | MNL-TYO: 9,100 ]
 
 Sampled Perturbation:
   • Gene 0 Noise: +329
   • Gene 1 Noise: +546
 
-Child Candidate D:         [ SNG-TOK: 11,529 | MNA-TOK: 9,646 ]
+Child Candidate D:         [ SIN-TYO: 11,529 | MNL-TYO: 9,646 ]
 ```
 
 #### Step 3: Evaluate Generation 1
@@ -228,8 +228,8 @@ We run the digital twin on our new child candidate:
 
 ```text
 Simulating Candidate D:
-  • SNG-TOK Utilization: 76.4%
-  • MNA-TOK Utilization: 47.9%
+  • SIN-TYO Utilization: 76.4%
+  • MNL-TYO Utilization: 47.9%
   • Peak Network Util:   76.4%
   • Violations:          0
   • Loss Score:          76.4  <-- Optimal Headroom Achieved!
@@ -309,32 +309,32 @@ Once the optimizer completes, TE-SIM generates vendor-specific, atomic configura
 
 #### Juniper Junos OS
 ```junos
-/* Step 1: Relieve primary Singapore to Tokyo congestion */
+/* Step 1: Relieve primary Singapore to Tokyo congestion on cr1.sin */
 set protocols isis interface ae3.3 level 2 metric 11529
-annotate protocols isis interface ae3.3 "TE-SIM: Relieve SNG-TOK utilization to 76.4%"
+annotate protocols isis interface ae3.3 "TE-SIM: Relieve SIN-TYO utilization to 76.4%"
 
-/* Step 2: Establish Manila transit headroom to absorb spillover */
+/* Step 2: Establish Manila transit headroom to absorb spillover on cr1.mnl */
 set protocols isis interface ae6.6 level 2 metric 9646
 annotate protocols isis interface ae6.6 "TE-SIM: Maintain Manila spillover headroom <= 48%"
 
 commit check
-commit comment "AUTO-TE: Relieve SNG-TOK congestion via GA-optimized metric vector"
+commit comment "AUTO-TE: Relieve SIN-TYO congestion via GA-optimized metric vector"
 ```
 
 #### Cisco IOS-XR
 ```cisco
-! TE-SIM Automated Remediation Vector
+! TE-SIM Automated Remediation Vector on cr1.sin / cr1.mnl
 router isis 100
  interface Bundle-Ether3.3
-  description ** Core Link to TOK4 **
+  description ** Core Trunk to cr2.tyo **
   metric 11529 2
  !
  interface Bundle-Ether6.6
-  description ** Transit Spillover Link to TOK4 **
+  description ** Transit Spillover Trunk to cr2.tyo **
   metric 9646 2
  !
 !
-commit comment "AUTO-TE: Relieve SNG-TOK congestion via GA-optimized metric vector"
+commit comment "AUTO-TE: Relieve SIN-TYO congestion via GA-optimized metric vector"
 ```
 
 ---
